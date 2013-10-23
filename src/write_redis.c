@@ -106,7 +106,7 @@ static int wr_write (const data_set_t *ds, /* {{{ */
   if (node->conn == NULL)
   {
     node->conn = redisConnectWithTimeout(node->host, node->port, node->timeout);
-    if (node->conn == NULL || c->err)
+    if (node->conn == NULL || node->conn->err)
     {
         if (c) {
             printf("Connection error: %s\n", c->errstr);
