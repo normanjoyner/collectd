@@ -38,7 +38,7 @@ struct wr_node_s
 
   char *host;
   int port;
-  struct timeval timeout;
+  int timeout;
 
   redisContext *conn;
   pthread_mutex_t lock;
@@ -106,7 +106,7 @@ static int wr_write (const data_set_t *ds, /* {{{ */
 
   if (node->conn == NULL)
   {
-    node->conn = redisConnectWithTimeout(node->host, node->port, node->timeout);
+    node->conn = redisConnect(node->host, node->port);
     if (node->conn == NULL || node->conn->err)
     {
         if (node->conn) {
@@ -161,7 +161,7 @@ static int wr_config_node (oconfig_item_t *ci) /* {{{ */
   memset (node, 0, sizeof (*node));
   node->host = NULL;
   node->port = 0;
-  node->timeout = { 1, 500000 };
+  node->timeout = 1000;
   node->conn = NULL;
   pthread_mutex_init (&node->lock, /* attr = */ NULL);
 
