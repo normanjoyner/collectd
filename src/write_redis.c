@@ -40,7 +40,7 @@ struct wr_node_s
   int port;
   struct timeval timeout;
 
-  redisContext conn;
+  redisContext *conn;
   pthread_mutex_t lock;
 };
 typedef struct wr_node_s wr_node_t;
