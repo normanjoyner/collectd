@@ -109,9 +109,9 @@ static int wr_write (const data_set_t *ds, /* {{{ */
     node->conn = redisConnectWithTimeout(node->host, node->port, node->timeout);
     if (node->conn == NULL || node->conn->err)
     {
-        if (c) {
+        if (node->conn) {
             printf("Connection error: %s\n", c->errstr);
-            redisFree(c);
+            redisFree(node->conn);
         } else {
             printf("Connection error: can't allocate redis context\n");
         }
