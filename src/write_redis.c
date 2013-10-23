@@ -30,7 +30,7 @@
 #include "configfile.h"
 
 #include <pthread.h>
-#include <credis.h>
+#include <hiredis.h>
 
 struct wr_node_s
 {
@@ -40,7 +40,7 @@ struct wr_node_s
   int port;
   int timeout;
 
-  REDIS conn;
+  redisContext c;
   pthread_mutex_t lock;
 };
 typedef struct wr_node_s wr_node_t;
@@ -105,23 +105,26 @@ static int wr_write (const data_set_t *ds, /* {{{ */
 
   if (node->conn == NULL)
   {
-    node->conn = credis_connect (node->host, node->port, node->timeout);
-    if (node->conn == NULL)
+    node->conn = redisConnectWithTimeout(node->host, node->port, node->timeout);
+    if (node->conn == NULL || c->err)
     {
-      ERROR ("write_redis plugin: Connecting to host \"%s\" (port %i) failed.",
-          (node->host != NULL) ? node->host : "localhost",
-          (node->port != 0) ? node->port : 6379);
-      pthread_mutex_unlock (&node->lock);
-      return (-1);
+        if (c) {
+            printf("Connection error: %s\n", c->errstr);
+            redisFree(c);
+        } else {
+            printf("Connection error: can't allocate redis context\n");
+        }
+        exit(1);
     }
   }
 
   /* "credis_zadd" doesn't handle a NULL pointer gracefully, so I'd rather
    * have a meaningful assertion message than a normal segmentation fault. */
   assert (node->conn != NULL);
-  status = credis_zadd (node->conn, key, (double) vl->time, value);
-
-  credis_sadd (node->conn, "collectd/values", ident);
+  status = redisCommand(node->conn, "ZADD %s %s %s", key, (double) vl->time, value);
+  freeReplyObject(status);
+  reply = redisCommand(node->conn, "SADD collectd/values %s", ident);
+  freeReplyObject(reply);
 
   pthread_mutex_unlock (&node->lock);
 
@@ -137,7 +140,7 @@ static void wr_config_free (void *ptr) /* {{{ */
 
   if (node->conn != NULL)
   {
-    credis_close (node->conn);
+    redisFree(node->conn);
     node->conn = NULL;
   }
 
