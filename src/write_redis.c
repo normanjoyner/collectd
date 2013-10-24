@@ -62,9 +62,7 @@ static int wr_write (const data_set_t *ds, /* {{{ */
   int status;
   int i;
   redisReply *reply;
-  struct timeval tmout;
-  tmout.tv_sec = node->timeout;
-  tmout.tv_usec = 0;
+  struct timeval tmt = { 1, 500000 };
 
   status = FORMAT_VL (ident, sizeof (ident), vl);
   if (status != 0)
@@ -110,7 +108,7 @@ static int wr_write (const data_set_t *ds, /* {{{ */
 
   if (node->conn == NULL)
   {
-    node->conn = redisConnectWithTimeout((char *)node->host, node->port, tmout);
+    node->conn = redisConnectWithTimeout((char *)node->host, node->port, tmt);
     if (node->conn == NULL || node->conn->err)
     {
         if (node->conn) {
@@ -166,6 +164,7 @@ static int wr_config_node (oconfig_item_t *ci) /* {{{ */
   node->host = NULL;
   node->port = 0;
   node->conn = NULL;
+  node->timeout = 1000;
   pthread_mutex_init (&node->lock, /* attr = */ NULL);
 
   status = cf_util_get_string_buffer (ci, node->name, sizeof (node->name));
