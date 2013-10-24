@@ -30,7 +30,7 @@
 #include "configfile.h"
 
 #include <pthread.h>
-#include <hiredis.h>
+#include <hiredis/hiredis.h>
 
 struct wr_node_s
 {
@@ -52,6 +52,7 @@ static int wr_write (const data_set_t *ds, /* {{{ */
     const value_list_t *vl,
     user_data_t *ud)
 {
+
   wr_node_t *node = ud->data;
   char ident[512];
   char key[512];
@@ -61,6 +62,9 @@ static int wr_write (const data_set_t *ds, /* {{{ */
   int status;
   int i;
   redisReply *reply;
+  struct timeval tmout;
+  tmout.tv_sec = node->timeout;
+  tmout.tv_usec = 0;
 
   status = FORMAT_VL (ident, sizeof (ident), vl);
   if (status != 0)
@@ -106,11 +110,11 @@ static int wr_write (const data_set_t *ds, /* {{{ */
 
   if (node->conn == NULL)
   {
-    node->conn = redisConnect(node->host, node->port);
+    node->conn = redisConnectWithTimeout((char *)node->host, node->port, tmout);
     if (node->conn == NULL || node->conn->err)
     {
         if (node->conn) {
-            printf("Connection error: %s\n", c->errstr);
+            printf("Connection error: %s\n", node->conn->errstr);
             redisFree(node->conn);
         } else {
             printf("Connection error: can't allocate redis context\n");
@@ -122,8 +126,8 @@ static int wr_write (const data_set_t *ds, /* {{{ */
   /* "credis_zadd" doesn't handle a NULL pointer gracefully, so I'd rather
    * have a meaningful assertion message than a normal segmentation fault. */
   assert (node->conn != NULL);
-  status = redisCommand(node->conn, "ZADD %s %s %s", key, (double) vl->time, value);
-  freeReplyObject(status);
+  reply = redisCommand(node->conn, "ZADD %s %s %s", key, (double) vl->time, value);
+  freeReplyObject(reply);
   reply = redisCommand(node->conn, "SADD collectd/values %s", ident);
   freeReplyObject(reply);
 
@@ -161,7 +165,6 @@ static int wr_config_node (oconfig_item_t *ci) /* {{{ */
   memset (node, 0, sizeof (*node));
   node->host = NULL;
   node->port = 0;
-  node->timeout = 1000;
   node->conn = NULL;
   pthread_mutex_init (&node->lock, /* attr = */ NULL);
 
